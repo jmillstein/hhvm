@@ -19,6 +19,11 @@
 #define incl_HPHP_EXT_HOTPROFILER_H_
 
 #include "hphp/runtime/ext/ext_fb.h"
+#include "hphp/runtime/ext/extension.h"
+#include "hphp/runtime/base/php-globals.h"
+#include "newrelic_transaction.h"
+#include "newrelic_collector_client.h"
+#include "newrelic_common.h"
 
 namespace HPHP {
 
@@ -34,7 +39,8 @@ public:
   const char     *m_name;        // function name
   uint8_t           m_hash_code;   // hash_code for the function name
   int             m_recursion;   // recursion level for function
-
+  long		  nr_id;
+  int		  nr_depth = 0;
   uint64_t          m_tsc_start;   // start value for TSC counter
   int64_t           m_mu_start;    // memory usage
   int64_t           m_pmu_start;   // peak memory usage
@@ -77,6 +83,7 @@ enum Flag {
   // Allows profiling of multiple threads at the same time with TraceProfiler.
   // Requires a lot of memory.
   IHaveInfiniteMemory   = 0x100,
+  NewRelic 		= 0x800,
 };
 
 /**
