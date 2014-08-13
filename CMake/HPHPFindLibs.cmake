@@ -388,7 +388,7 @@ macro(hphp_link target)
 target_link_libraries(${target}
         ${NEWRELIC_TRANSACTION_LIBRARY}
         ${NEWRELIC_COMMON_LIBRARY}
-        ${NEWRELIC_COLLECTOR_CLIENT_LIBRARY}
+        ${NEWRELIC_COLLECTOR_CLIENT_LIBRARY})
 
   if (GOOGLE_HEAP_PROFILER_ENABLED OR GOOGLE_CPU_PROFILER_ENABLED)
     target_link_libraries(${target} ${GOOGLE_PROFILER_LIB})
