@@ -500,7 +500,7 @@ public:
       }
   }
 
-  virtual void beginFrameEx() {
+  virtual void beginFrameEx(const char *symbol) override {
       if (m_stack->m_parent) {
           Frame *p = m_stack->m_parent;
           m_stack->nr_depth = p->nr_depth + 1;
@@ -514,16 +514,17 @@ public:
 
   }
 
-  virtual void endFrameEx() {
+  virtual void endFrameEx(const TypedValue *retval,
+                          const char *given_symbol) override {
     if ( m_stack->nr_id != 0) {
         newrelic_segment_end(NEWRELIC_AUTOSCOPE, m_stack->nr_id);
         m_stack->nr_id = 0;
     }
   }
 
-  virtual void endAllFrames() {
+  virtual void endAllFrames() override {
     while (m_stack) {
-      endFrame(nullptr, true);
+      endFrame(nullptr, nullptr, true);
     }
   }
 
