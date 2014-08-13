@@ -469,6 +469,71 @@ void Profiler::endFrame(const TypedValue *retval,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// NewRelicProfiler
+
+const StaticString
+  s__SERVER("_SERVER"),
+  s__REQUEST_URI("REQUEST_URI"),
+  s__SCRIPT_NAME("SCRIPT_NAME"),
+  s__NEWRELIC("newrelic");
+
+class NewRelicProfiler : public Profiler {
+private:
+  typedef hphp_hash_map<std::string, string_hash> StatsMap;
+  StatsMap m_stats; // outcome
+  int max_depth;
+
+public:
+
+public:
+  explicit NewRelicProfiler(int flags) : m_flags(flags) {
+      max_depth = flags;
+      //if extension is loaded, we already have a transaction begin
+      // (if auto-thingie is enabled, not implemented yet)
+      if (! Extension::IsLoaded(s__NEWRELIC)) {
+
+          newrelic_transaction_begin();
+          String request_url = php_global(s__SERVER).toArray()[s__REQUEST_URI].toString();
+          newrelic_transaction_set_request_url(NEWRELIC_AUTOSCOPE, request_url.c_str());
+          String script_name = php_global(s__SERVER).toArray()[s__SCRIPT_NAME].toString();
+          newrelic_transaction_set_name(NEWRELIC_AUTOSCOPE, script_name.c_str());
+      }
+  }
+
+  virtual void beginFrameEx() {
+      if (m_stack->m_parent) {
+          Frame *p = m_stack->m_parent;
+          m_stack->nr_depth = p->nr_depth + 1;
+      } else {
+          m_stack->nr_depth  = 0;
+      }
+      m_stack->nr_id = 0;
+      if (m_stack->nr_depth < max_depth) {
+          m_stack->nr_id = newrelic_segment_generic_begin(NEWRELIC_AUTOSCOPE, NEWRELIC_AUTOSCOPE, m_stack->m_name);
+      }
+
+  }
+
+  virtual void endFrameEx() {
+    if ( m_stack->nr_id != 0) {
+        newrelic_segment_end(NEWRELIC_AUTOSCOPE, m_stack->nr_id);
+        m_stack->nr_id = 0;
+    }
+  }
+
+  virtual void endAllFrames() {
+    while (m_stack) {
+      endFrame(nullptr, true);
+    }
+  }
+
+private:
+  uint32_t m_flags;
+};
+
+
+
+///////////////////////////////////////////////////////////////////////////////
 // HierarchicalProfiler
 
 class HierarchicalProfiler : public Profiler {
@@ -1312,6 +1377,9 @@ bool ProfilerFactory::start(ProfilerKind kind,
   case ProfilerKind::XDebug:
     m_profiler = new XDebugProfiler();
     break;
+  case ProfilerKind::NewRelic:
+    m_profiler = new NewRelicProfiler(flags);
+    break;
   default:
     throw_invalid_argument("level: %d", kind);
     return false;
@@ -1438,6 +1506,16 @@ void f_xhprof_enable(int flags/* = 0 */,
   } else {
     s_profiler_factory->start(ProfilerKind::Hierarchical, flags);
   }
+
+  if (flags & NewRelic) {
+      flags = 7;
+      for (ArrayIter iter(args); iter; ++iter) {
+          if (iter.first().toInt32() == 0) {
+               flags = iter.second().toInt32();
+          }
+      }
+      s_profiler_factory->start(ProfilerKind::NewRelic, flags);
+   }
 }
 
 Variant f_xhprof_disable() {
